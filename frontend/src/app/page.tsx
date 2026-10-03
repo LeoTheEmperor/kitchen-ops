@@ -1,12 +1,15 @@
-import Link from "next/link";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4">
-      <h1 className="text-2xl font-semibold">Heizen Starter</h1>
-      <Link href="/login" className="rounded bg-black px-4 py-2 text-white">
-        Go to login
-      </Link>
-    </main>
-  );
+  const router = useRouter();
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    router.replace(token ? "/dashboard" : "/login");
+  }, [router]);
+
+  return null;
 }
