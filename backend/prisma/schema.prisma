@@ -1,0 +1,568 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Staff / Auth
+// ────────────────────────────────────────────────────────────────────────
+
+enum StaffRole {
+  ADMIN
+  KITCHEN
+  DISPATCH
+  DRIVER
+}
+
+model Staff {
+  id        String    @id @default(cuid())
+  email     String    @unique
+  password  String
+  name      String
+  role      StaffRole
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  deliveries Delivery[] @relation("DriverDeliveries")
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Reference data (admin-managed lists)
+// ────────────────────────────────────────────────────────────────────────
+
+model Allergen {
+  id   String @id @default(cuid())
+  name String @unique
+
+  dishes  DishAllergen[]
+  options OptionAllergen[]
+}
+
+model DietaryTag {
+  id   String @id @default(cuid())
+  name String @unique
+
+  dishes  DishDietaryTag[]
+  options OptionDietaryTag[]
+}
+
+model KitchenStation {
+  id   String @id @default(cuid())
+  name String @unique
+
+  dishes Dish[]
+}
+
+model PortionSize {
+  id    String @id @default(cuid())
+  name  String @unique
+  order Int    @default(0)
+
+  optionPortions OptionPortion[]
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Catalogue: Dishes, Options, Option Groups
+// ────────────────────────────────────────────────────────────────────────
+
+enum Temperature {
+  HOT
+  COLD
+}
+
+model Dish {
+  id          String       @id @default(cuid())
+  sku         String       @unique
+  name        String
+  description String?
+  imageUrl    String?
+  temperature Temperature
+  costPrice   Decimal      @db.Decimal(10, 2)
+  minOrderQty Int?
+  active      Boolean      @default(true)
+
+  stationId String?
+  station   KitchenStation? @relation(fields: [stationId], references: [id])
+
+  allergens    DishAllergen[]
+  dietaryTags  DishDietaryTag[]
+  optionGroups OptionGroup[]
+  prices       DishPrice[]
+  categoryItems CategoryItem[]
+  orderLines   OrderLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DishAllergen {
+  dishId     String
+  allergenId String
+  dish       Dish     @relation(fields: [dishId], references: [id])
+  allergen   Allergen @relation(fields: [allergenId], references: [id])
+
+  @@id([dishId, allergenId])
+}
+
+model DishDietaryTag {
+  dishId       String
+  dietaryTagId String
+  dish         Dish       @relation(fields: [dishId], references: [id])
+  dietaryTag   DietaryTag @relation(fields: [dietaryTagId], references: [id])
+
+  @@id([dishId, dietaryTagId])
+}
+
+model OptionGroup {
+  id           String  @id @default(cuid())
+  dishId       String
+  dish         Dish    @relation(fields: [dishId], references: [id])
+  name         String
+  required     Boolean @default(true)
+  displayOrder Int     @default(0)
+  usesPortions Boolean @default(false)
+
+  options OptionGroupItem[]
+
+  @@index([dishId])
+}
+
+model Option {
+  id        String  @id @default(cuid())
+  name      String
+  costPrice Decimal @db.Decimal(10, 2)
+  active    Boolean @default(true)
+
+  allergens   OptionAllergen[]
+  dietaryTags OptionDietaryTag[]
+  groupLinks  OptionGroupItem[]
+  prices      OptionPrice[]
+  portions    OptionPortion[]
+
+  createdAt DateTime @default(now())
+}
+
+model OptionAllergen {
+  optionId   String
+  allergenId String
+  option     Option   @relation(fields: [optionId], references: [id])
+  allergen   Allergen @relation(fields: [allergenId], references: [id])
+
+  @@id([optionId, allergenId])
+}
+
+model OptionDietaryTag {
+  optionId     String
+  dietaryTagId String
+  option       Option     @relation(fields: [optionId], references: [id])
+  dietaryTag   DietaryTag @relation(fields: [dietaryTagId], references: [id])
+
+  @@id([optionId, dietaryTagId])
+}
+
+model OptionGroupItem {
+  id            String      @id @default(cuid())
+  optionGroupId String
+  optionGroup   OptionGroup @relation(fields: [optionGroupId], references: [id])
+  optionId      String
+  option        Option      @relation(fields: [optionId], references: [id])
+  displayOrder  Int         @default(0)
+
+  @@unique([optionGroupId, optionId])
+}
+
+model OptionPortion {
+  id            String      @id @default(cuid())
+  optionId      String
+  option        Option      @relation(fields: [optionId], references: [id])
+  portionSizeId String
+  portionSize   PortionSize @relation(fields: [portionSizeId], references: [id])
+  extraCharge   Decimal     @db.Decimal(10, 2)
+
+  @@unique([optionId, portionSizeId])
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Menu: Categories
+// ────────────────────────────────────────────────────────────────────────
+
+model Category {
+  id           String  @id @default(cuid())
+  name         String
+  displayOrder Int     @default(0)
+  active       Boolean @default(true)
+  secret       Boolean @default(false)
+
+  items  CategoryItem[]
+  hidden CategoryCompanyHidden[]
+}
+
+model CategoryItem {
+  id           String   @id @default(cuid())
+  categoryId   String
+  category     Category @relation(fields: [categoryId], references: [id])
+  dishId       String
+  dish         Dish     @relation(fields: [dishId], references: [id])
+  displayOrder Int      @default(0)
+
+  hidden CategoryItemCompanyHidden[]
+
+  @@unique([categoryId, dishId])
+}
+
+model CategoryCompanyHidden {
+  categoryId String
+  companyId  String
+  category   Category @relation(fields: [categoryId], references: [id])
+  company    Company  @relation(fields: [companyId], references: [id])
+
+  @@id([categoryId, companyId])
+}
+
+model CategoryItemCompanyHidden {
+  categoryItemId String
+  companyId      String
+  categoryItem   CategoryItem @relation(fields: [categoryItemId], references: [id])
+  company        Company      @relation(fields: [companyId], references: [id])
+
+  @@id([categoryItemId, companyId])
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Pricing
+// ────────────────────────────────────────────────────────────────────────
+
+enum DerivationType {
+  NONE
+  COST_MULTIPLIER
+  MARKUP_PERCENT
+}
+
+model PriceTier {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  isDefault Boolean @default(false)
+
+  dishPrices   DishPrice[]
+  optionPrices OptionPrice[]
+  companies    Company[]
+}
+
+model DishPrice {
+  id              String         @id @default(cuid())
+  dishId          String
+  dish            Dish           @relation(fields: [dishId], references: [id])
+  priceTierId     String
+  priceTier       PriceTier      @relation(fields: [priceTierId], references: [id])
+  explicitPrice   Decimal?       @db.Decimal(10, 2)
+  derivation      DerivationType @default(NONE)
+  derivationValue Decimal?       @db.Decimal(10, 4)
+
+  @@unique([dishId, priceTierId])
+}
+
+model OptionPrice {
+  id              String         @id @default(cuid())
+  optionId        String
+  option          Option         @relation(fields: [optionId], references: [id])
+  priceTierId     String
+  priceTier       PriceTier      @relation(fields: [priceTierId], references: [id])
+  explicitPrice   Decimal?       @db.Decimal(10, 2)
+  derivation      DerivationType @default(NONE)
+  derivationValue Decimal?       @db.Decimal(10, 4)
+
+  @@unique([optionId, priceTierId])
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Companies, Employees
+// ────────────────────────────────────────────────────────────────────────
+
+model Company {
+  id              String     @id @default(cuid())
+  name            String
+  priceTierId     String?
+  priceTier       PriceTier? @relation(fields: [priceTierId], references: [id])
+  ownerEmployeeId String?    @unique
+  ownerEmployee   Employee?  @relation("CompanyOwner", fields: [ownerEmployeeId], references: [id])
+
+  defaultDeliveryTime  String?
+  dispatchLeadMinutes  Int      @default(60)
+  defaultPackagingType String?
+  driverInstructions   String?
+  defaultDriverId      String?
+  defaultDriver        Staff?   @relation(fields: [defaultDriverId], references: [id])
+
+  workingDays Json     @default("[1,2,3,4,5]")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  domains          CompanyDomain[]
+  addresses        CompanyAddress[]
+  holidays         CompanyHoliday[]
+  employees        Employee[] @relation("CompanyEmployees")
+  hiddenCategories CategoryCompanyHidden[]
+  hiddenItems      CategoryItemCompanyHidden[]
+  orders           Order[]
+  invoices         Invoice[]
+}
+
+model CompanyDomain {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+  domain    String  @unique
+}
+
+model CompanyAddress {
+  id         String  @id @default(cuid())
+  companyId  String
+  company    Company @relation(fields: [companyId], references: [id])
+  label      String
+  line1      String
+  line2      String?
+  city       String
+  state      String?
+  postalCode String?
+
+  orders Order[]
+}
+
+model CompanyHoliday {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  date      DateTime @db.Date
+
+  @@unique([companyId, date])
+}
+
+model Employee {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation("CompanyEmployees", fields: [companyId], references: [id])
+  name      String
+  email     String  @unique
+  active    Boolean @default(true)
+
+  canChooseAddress   Boolean @default(true)
+  canChangeTime      Boolean @default(false)
+  canChangePackaging Boolean @default(false)
+
+  allergies          EmployeeAllergy[]
+  dietaryPreferences EmployeeDietaryTag[]
+  orders             Order[]
+  ownedCompany       Company? @relation("CompanyOwner")
+
+  createdAt DateTime @default(now())
+}
+
+model EmployeeAllergy {
+  employeeId String
+  allergenId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  allergen   Allergen @relation(fields: [allergenId], references: [id])
+
+  @@id([employeeId, allergenId])
+}
+
+model EmployeeDietaryTag {
+  employeeId   String
+  dietaryTagId String
+  employee     Employee   @relation(fields: [employeeId], references: [id])
+  dietaryTag   DietaryTag @relation(fields: [dietaryTagId], references: [id])
+
+  @@id([employeeId, dietaryTagId])
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Orders
+// ────────────────────────────────────────────────────────────────────────
+
+enum OrderStatus {
+  DRAFT
+  PLACED
+  CONFIRMED
+  DELIVERED
+  CANCELLED
+  REJECTED
+}
+
+model Order {
+  id         String   @id @default(cuid())
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id])
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+
+  deliveryDate  DateTime @db.Date
+  deliveryTime  String
+  addressId     String
+  address       CompanyAddress @relation(fields: [addressId], references: [id])
+  packagingType String?
+
+  status OrderStatus @default(DRAFT)
+
+  dispatchReadyAt      DateTime?
+  kitchenReadyAt       DateTime?
+  kitchenStartedAt     DateTime?
+  kitchenReadyActualAt DateTime?
+
+  lines     OrderLine[]
+  delivery  Delivery?
+  invoiceId String?
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id])
+
+  statusHistory OrderStatusEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deliveryDate, status])
+  @@index([companyId])
+}
+
+model OrderStatusEvent {
+  id        String      @id @default(cuid())
+  orderId   String
+  order     Order       @relation(fields: [orderId], references: [id])
+  status    OrderStatus
+  note      String?
+  createdAt DateTime    @default(now())
+
+  @@index([orderId])
+}
+
+model OrderLine {
+  id                String  @id @default(cuid())
+  orderId           String
+  order             Order   @relation(fields: [orderId], references: [id])
+  dishId            String
+  dish              Dish    @relation(fields: [dishId], references: [id])
+  quantity          Int
+  unitPriceSnapshot Decimal @db.Decimal(10, 2)
+
+  combinations OrderLineCombination[]
+
+  @@index([orderId])
+}
+
+model OrderLineCombination {
+  id                 String    @id @default(cuid())
+  orderLineId        String
+  orderLine          OrderLine @relation(fields: [orderLineId], references: [id])
+  quantity           Int
+  totalPriceSnapshot Decimal   @db.Decimal(10, 2)
+
+  chosenOptions OrderLineCombinationOption[]
+  prepUnit      PrepUnit?
+
+  @@index([orderLineId])
+}
+
+// Deliberately no FK to Option: this is a frozen historical record of what was
+// chosen and at what price. If the Option is later renamed, deactivated, or
+// deleted, this snapshot must stay exactly as the customer ordered it (4.1).
+model OrderLineCombinationOption {
+  id                 String               @id @default(cuid())
+  combinationId      String
+  combination        OrderLineCombination @relation(fields: [combinationId], references: [id])
+  optionNameSnapshot String
+  priceSnapshot      Decimal              @db.Decimal(10, 2)
+
+  @@index([combinationId])
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Cut-off processing — idempotency guaranteed by unique(deliveryDate)
+// ────────────────────────────────────────────────────────────────────────
+
+model CutoffRun {
+  id              String   @id @default(cuid())
+  deliveryDate    DateTime @unique @db.Date
+  processedAt     DateTime @default(now())
+  draftsCancelled Int
+  ordersConfirmed Int
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Kitchen board
+// ────────────────────────────────────────────────────────────────────────
+
+enum PrepStatus {
+  PENDING
+  STARTED
+  DONE
+}
+
+model PrepUnit {
+  id            String               @id @default(cuid())
+  combinationId String               @unique
+  combination   OrderLineCombination @relation(fields: [combinationId], references: [id])
+  status        PrepStatus           @default(PENDING)
+  startedAt     DateTime?
+  doneAt        DateTime?
+
+  @@index([status])
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Dispatch & delivery
+// ────────────────────────────────────────────────────────────────────────
+
+enum DeliveryStatus {
+  KITCHEN_READY
+  DISPATCH_READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+}
+
+model Delivery {
+  id       String         @id @default(cuid())
+  orderId  String         @unique
+  order    Order          @relation(fields: [orderId], references: [id])
+  status   DeliveryStatus @default(KITCHEN_READY)
+  driverId String?
+  driver   Staff?         @relation("DriverDeliveries", fields: [driverId], references: [id])
+
+  dispatchReadyAt  DateTime?
+  outForDeliveryAt DateTime?
+  deliveredAt      DateTime?
+  onTime           Boolean?
+  deliveryNote     String?
+  deliveryPhotoUrl String?
+
+  @@index([status])
+  @@index([driverId])
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Billing — invoices are immutable once issued (documented decision)
+// ────────────────────────────────────────────────────────────────────────
+
+model Invoice {
+  id        String    @id @default(cuid())
+  companyId String
+  company   Company   @relation(fields: [companyId], references: [id])
+  total     Decimal   @db.Decimal(10, 2)
+  paid      Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  paidAt    DateTime?
+
+  orders Order[]
+
+  @@index([companyId])
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Settings — platform-wide values editable without touching code
+// ────────────────────────────────────────────────────────────────────────
+
+model Setting {
+  key   String @id
+  value String
+}
