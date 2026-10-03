@@ -26,6 +26,7 @@ model Staff {
   role      StaffRole
   active    Boolean   @default(true)
   createdAt DateTime  @default(now())
+  companies Company[] @relation("CompanyEmployees")
 
   deliveries Delivery[] @relation("DriverDeliveries")
 }
@@ -40,6 +41,7 @@ model Allergen {
 
   dishes  DishAllergen[]
   options OptionAllergen[]
+  employeeAllergies EmployeeAllergy[]
 }
 
 model DietaryTag {
@@ -48,6 +50,7 @@ model DietaryTag {
 
   dishes  DishDietaryTag[]
   options OptionDietaryTag[]
+  employeeDietaryPreferences EmployeeDietaryTag[]
 }
 
 model KitchenStation {
