@@ -26,6 +26,7 @@ model Staff {
   role      StaffRole
   active    Boolean   @default(true)
   createdAt DateTime  @default(now())
+  companies Company[] @relation("CompanyEmployees")
 
   deliveries          Delivery[] @relation("DriverDeliveries")
   defaultForCompanies Company[]
