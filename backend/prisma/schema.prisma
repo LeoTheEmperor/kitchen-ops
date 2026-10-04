@@ -26,10 +26,10 @@ model Staff {
   role      StaffRole
   active    Boolean   @default(true)
   createdAt DateTime  @default(now())
-  companies Company[] @relation("CompanyEmployees")
 
-  deliveries          Delivery[] @relation("DriverDeliveries")
-  defaultForCompanies Company[]
+  companies        Company[]  @relation("CompanyStaff")
+  defaultDriverFor Company[]  @relation("CompanyDefaultDriver")
+  deliveries       Delivery[] @relation("DriverDeliveries")
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -40,8 +40,8 @@ model Allergen {
   id   String @id @default(cuid())
   name String @unique
 
-  dishes  DishAllergen[]
-  options OptionAllergen[]
+  dishes            DishAllergen[]
+  options           OptionAllergen[]
   employeeAllergies EmployeeAllergy[]
 }
 
@@ -49,8 +49,8 @@ model DietaryTag {
   id   String @id @default(cuid())
   name String @unique
 
-  dishes  DishDietaryTag[]
-  options OptionDietaryTag[]
+  dishes                     DishDietaryTag[]
+  options                    OptionDietaryTag[]
   employeeDietaryPreferences EmployeeDietaryTag[]
 }
 
@@ -79,25 +79,25 @@ enum Temperature {
 }
 
 model Dish {
-  id          String       @id @default(cuid())
-  sku         String       @unique
+  id          String      @id @default(cuid())
+  sku         String      @unique
   name        String
   description String?
   imageUrl    String?
   temperature Temperature
-  costPrice   Decimal      @db.Decimal(10, 2)
+  costPrice   Decimal     @db.Decimal(10, 2)
   minOrderQty Int?
-  active      Boolean      @default(true)
+  active      Boolean     @default(true)
 
   stationId String?
   station   KitchenStation? @relation(fields: [stationId], references: [id])
 
-  allergens    DishAllergen[]
-  dietaryTags  DishDietaryTag[]
-  optionGroups OptionGroup[]
-  prices       DishPrice[]
+  allergies     DishAllergen[]
+  dietaryTags   DishDietaryTag[]
+  optionGroups  OptionGroup[]
+  prices        DishPrice[]
   categoryItems CategoryItem[]
-  orderLines   OrderLine[]
+  orderLines    OrderLine[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -141,7 +141,7 @@ model Option {
   costPrice Decimal @db.Decimal(10, 2)
   active    Boolean @default(true)
 
-  allergens   OptionAllergen[]
+  allergies   OptionAllergen[]
   dietaryTags OptionDietaryTag[]
   groupLinks  OptionGroupItem[]
   prices      OptionPrice[]
@@ -295,20 +295,21 @@ model Company {
   ownerEmployee   Employee?  @relation("CompanyOwner", fields: [ownerEmployeeId], references: [id])
 
   defaultDeliveryTime  String?
-  dispatchLeadMinutes  Int      @default(60)
+  dispatchLeadMinutes  Int     @default(60)
   defaultPackagingType String?
   driverInstructions   String?
   defaultDriverId      String?
-  defaultDriver        Staff?   @relation(fields: [defaultDriverId], references: [id])
+  defaultDriver        Staff?  @relation("CompanyDefaultDriver", fields: [defaultDriverId], references: [id])
 
   workingDays Json     @default("[1,2,3,4,5]")
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
 
+  staff            Staff[]                     @relation("CompanyStaff")
   domains          CompanyDomain[]
   addresses        CompanyAddress[]
   holidays         CompanyHoliday[]
-  employees        Employee[] @relation("CompanyEmployees")
+  employees        Employee[]                  @relation("CompanyEmployees")
   hiddenCategories CategoryCompanyHidden[]
   hiddenItems      CategoryItemCompanyHidden[]
   orders           Order[]
@@ -360,7 +361,7 @@ model Employee {
   allergies          EmployeeAllergy[]
   dietaryPreferences EmployeeDietaryTag[]
   orders             Order[]
-  ownedCompany       Company? @relation("CompanyOwner")
+  ownedCompany       Company?             @relation("CompanyOwner")
 
   createdAt DateTime @default(now())
 }
@@ -403,7 +404,7 @@ model Order {
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id])
 
-  deliveryDate  DateTime @db.Date
+  deliveryDate  DateTime       @db.Date
   deliveryTime  String
   addressId     String
   address       CompanyAddress @relation(fields: [addressId], references: [id])
@@ -419,7 +420,7 @@ model Order {
   lines     OrderLine[]
   delivery  Delivery?
   invoiceId String?
-  invoice   Invoice? @relation(fields: [invoiceId], references: [id])
+  invoice   Invoice?    @relation(fields: [invoiceId], references: [id])
 
   statusHistory OrderStatusEvent[]
 
@@ -468,9 +469,6 @@ model OrderLineCombination {
   @@index([orderLineId])
 }
 
-// Deliberately no FK to Option: this is a frozen historical record of what was
-// chosen and at what price. If the Option is later renamed, deactivated, or
-// deleted, this snapshot must stay exactly as the customer ordered it (4.1).
 model OrderLineCombinationOption {
   id                 String               @id @default(cuid())
   combinationId      String
@@ -482,7 +480,7 @@ model OrderLineCombinationOption {
 }
 
 // ────────────────────────────────────────────────────────────────────────
-// Cut-off processing — idempotency guaranteed by unique(deliveryDate)
+// Cut-off processing
 // ────────────────────────────────────────────────────────────────────────
 
 model CutoffRun {
@@ -545,7 +543,7 @@ model Delivery {
 }
 
 // ────────────────────────────────────────────────────────────────────────
-// Billing — invoices are immutable once issued (documented decision)
+// Billing
 // ────────────────────────────────────────────────────────────────────────
 
 model Invoice {
@@ -563,7 +561,7 @@ model Invoice {
 }
 
 // ────────────────────────────────────────────────────────────────────────
-// Settings — platform-wide values editable without touching code
+// Settings
 // ────────────────────────────────────────────────────────────────────────
 
 model Setting {
