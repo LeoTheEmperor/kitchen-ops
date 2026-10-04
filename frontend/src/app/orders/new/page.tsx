@@ -9,13 +9,11 @@ import {
   CompanySummary, EmployeeSummary, MenuCategory, MenuDish,
 } from "@/lib/api";
 
-// One line being built in the cart, before submission.
 interface CartLine {
-  key: string; // local id for list rendering
+  key: string;
   dish: MenuDish;
   quantity: number;
-  // one combination per distinct option choice set the user has added
-  combinations: { quantity: number; chosenOptions: Record<string, string> }[]; // groupId -> optionId
+  combinations: { quantity: number; chosenOptions: Record<string, string> }[];
 }
 
 export default function NewOrderPage() {
@@ -100,64 +98,64 @@ export default function NewOrderPage() {
     setCart((prev) =>
       prev.map((line) => {
         if (line.key !== key) return line;
-        const combinations = line.combinations.map((c, i) => (i === comboIndex ? { ...c, ...patch } : c));
-        return { ...line, combinations };
+        const nextCombos = line.combinations.map((c, i) => (i === comboIndex ? { ...c, ...patch } : c));
+        return { ...line, combinations: nextCombos };
       }),
     );
   }
 
   function removeCombination(key: string, comboIndex: number) {
     setCart((prev) =>
-      prev.map((line) =>
-        line.key === key ? { ...line, combinations: line.combinations.filter((_, i) => i !== comboIndex) } : line,
-      ),
+      prev.map((line) => {
+        if (line.key !== key) return line;
+        return { ...line, combinations: line.combinations.filter((_, i) => i !== comboIndex) };
+      }),
     );
   }
 
-  // Price preview computed client-side from the menu's resolved prices -
-  // the server recomputes and is the actual source of truth at submit time.
   function comboPrice(dish: MenuDish, chosenOptions: Record<string, string>): number {
-    let total = Number(dish.price);
-    for (const group of dish.optionGroups) {
-      const optionId = chosenOptions[group.id];
-      if (!optionId) continue;
-      const option = group.options.find((o) => o.id === optionId);
-      if (option) total += Number(option.price);
-    }
-    return total;
+    let sum = Number(dish.price);
+    dish.optionGroups.forEach((g) => {
+      const optId = chosenOptions[g.id];
+      if (optId) {
+        const opt = g.options.find((o) => o.id === optId);
+        if (opt) sum += Number(opt.price);
+      }
+    });
+    return sum;
   }
 
-  function lineTotal(line: CartLine): number {
-    return line.combinations.reduce((sum, c) => sum + comboPrice(line.dish, c.chosenOptions) * c.quantity, 0);
-  }
-
-  const orderTotal = cart.reduce((sum, line) => sum + lineTotal(line), 0);
-
-  function combinationQuantitySum(line: CartLine): number {
-    return line.combinations.reduce((sum, c) => sum + c.quantity, 0);
-  }
+  const orderTotal = cart.reduce((lineSum, line) => {
+    const combosTotal = line.combinations.reduce((cSum, c) => {
+      return cSum + comboPrice(line.dish, c.chosenOptions) * c.quantity;
+    }, 0);
+    return lineSum + combosTotal;
+  }, 0);
 
   function lineHasQuantityMismatch(line: CartLine): boolean {
-    return combinationQuantitySum(line) !== line.quantity;
+    if (line.dish.optionGroups.length === 0) return false;
+    const sum = line.combinations.reduce((s, c) => s + c.quantity, 0);
+    return sum !== line.quantity;
   }
 
   function lineMissingRequiredGroup(line: CartLine): boolean {
-    const requiredGroupIds = line.dish.optionGroups.filter((g) => g.required).map((g) => g.id);
-    return line.combinations.some((combo) => requiredGroupIds.some((gid) => !combo.chosenOptions[gid]));
+    const reqGroups = line.dish.optionGroups.filter((g) => g.required);
+    if (reqGroups.length === 0) return false;
+    return line.combinations.some((c) => reqGroups.some((g) => !c.chosenOptions[g.id]));
   }
 
   const canSubmit =
-    employeeId &&
-    deliveryDate &&
+    Boolean(employeeId) &&
+    Boolean(deliveryDate) &&
     cart.length > 0 &&
     cart.every((line) => !lineHasQuantityMismatch(line) && !lineMissingRequiredGroup(line));
 
-  async function handleSubmit(asDraft: boolean) {
-    if (!token || !employeeId || !deliveryDate) return;
+  async function handleSubmit(asDraft = false) {
+    if (!token || !canSubmit) return;
     setSubmitError(null);
     setSubmitting(true);
     try {
-      const order = await createOrder(token, {
+      const dto = {
         employeeId,
         deliveryDate,
         deliveryTime: deliveryTime || undefined,
@@ -169,187 +167,253 @@ export default function NewOrderPage() {
           quantity: line.quantity,
           combinations: line.combinations.map((c) => ({
             quantity: c.quantity,
-            chosenOptions: Object.entries(c.chosenOptions).map(([groupId, optionId]) => ({ groupId, optionId })),
+            chosenOptions: Object.entries(c.chosenOptions)
+              .filter(([, optId]) => Boolean(optId))
+              .map(([groupId, optionId]) => ({ groupId, optionId })),
           })),
         })),
-      });
-      router.push(`/orders/${order.id}`);
+      };
+      const created = await createOrder(token, dto);
+      router.push(`/orders/${created.id}`);
     } catch (err: any) {
-      setSubmitError(err.message ?? "Could not create this order");
+      setSubmitError(err.message ?? "Could not create order");
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (loading || !user) return <main className="p-6">Loading...</main>;
+  if (loading || !user) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50">
+        <p className="text-sm font-semibold text-slate-600">Loading order form...</p>
+      </main>
+    );
+  }
 
   return (
     <AppShell user={user}>
-      <h1 className="mb-4 text-lg font-semibold">New order</h1>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Create New Order</h1>
+            <p className="mt-1 text-sm font-medium text-slate-600">Configure corporate meal order, dish portions, and options</p>
+          </div>
+          <button
+            onClick={() => router.push("/orders")}
+            className="cursor-pointer rounded-lg border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-100"
+          >
+            Cancel
+          </button>
+        </div>
 
-      <div className="grid max-w-5xl grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Left: company/employee/delivery details */}
-        <div className="space-y-4 lg:col-span-1">
-          <div className="rounded-lg border bg-white p-4">
-            <label className="block text-xs text-neutral-500">Company</label>
-            <select
-              value={companyId}
-              onChange={(e) => setCompanyId(e.target.value)}
-              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-            >
-              <option value="">Select a company</option>
-              {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* Left Column: Context & Order Settings */}
+          <div className="space-y-6">
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+              <h2 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-3 mb-4">
+                Customer Details
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="company-select" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Select Company
+                  </label>
+                  <select
+                    id="company-select"
+                    value={companyId}
+                    onChange={(e) => setCompanyId(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-2xs focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+                  >
+                    <option value="">Select a company...</option>
+                    {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
 
-            {companyId && (
-              <>
-                <label className="mt-3 block text-xs text-neutral-500">Employee</label>
-                <select
-                  value={employeeId}
-                  onChange={(e) => setEmployeeId(e.target.value)}
-                  className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-                >
-                  <option value="">Select an employee</option>
-                  {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-                </select>
-              </>
-            )}
-
-            {employeeId && (
-              <>
-                <label className="mt-3 block text-xs text-neutral-500">Delivery date</label>
-                <input
-                  type="date"
-                  value={deliveryDate}
-                  onChange={(e) => setDeliveryDate(e.target.value)}
-                  className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-                />
-
-                <label className="mt-3 block text-xs text-neutral-500">
-                  Delivery time {!employee?.canChangeTime && "(company default)"}
-                </label>
-                <input
-                  type="time"
-                  value={deliveryTime}
-                  onChange={(e) => setDeliveryTime(e.target.value)}
-                  disabled={!employee?.canChangeTime}
-                  className="mt-1 w-full rounded border px-2 py-1.5 text-sm disabled:bg-neutral-100"
-                />
-
-                {selectedCompany && selectedCompany.addresses.length > 0 && (
-                  <>
-                    <label className="mt-3 block text-xs text-neutral-500">
-                      Address {!employee?.canChooseAddress && "(company default)"}
+                {companyId && (
+                  <div>
+                    <label htmlFor="employee-select" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                      Select Employee
                     </label>
                     <select
-                      value={addressId}
-                      onChange={(e) => setAddressId(e.target.value)}
-                      disabled={!employee?.canChooseAddress}
-                      className="mt-1 w-full rounded border px-2 py-1.5 text-sm disabled:bg-neutral-100"
+                      id="employee-select"
+                      value={employeeId}
+                      onChange={(e) => setEmployeeId(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-2xs focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
                     >
-                      <option value="">Default</option>
-                      {selectedCompany.addresses.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+                      <option value="">Select an employee...</option>
+                      {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
                     </select>
-                  </>
+                  </div>
                 )}
 
-                <label className="mt-3 block text-xs text-neutral-500">
-                  Packaging {!employee?.canChangePackaging && "(company default)"}
-                </label>
-                <input
-                  type="text"
-                  value={packagingType}
-                  onChange={(e) => setPackagingType(e.target.value)}
-                  disabled={!employee?.canChangePackaging}
-                  placeholder="Company default"
-                  className="mt-1 w-full rounded border px-2 py-1.5 text-sm disabled:bg-neutral-100"
-                />
-              </>
+                {employeeId && (
+                  <>
+                    <div>
+                      <label htmlFor="delivery-date" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                        Delivery Date
+                      </label>
+                      <input
+                        id="delivery-date"
+                        type="date"
+                        value={deliveryDate}
+                        onChange={(e) => setDeliveryDate(e.target.value)}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-2xs focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="delivery-time" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                        Delivery Time {!employee?.canChangeTime && "(Company Default)"}
+                      </label>
+                      <input
+                        id="delivery-time"
+                        type="time"
+                        value={deliveryTime}
+                        onChange={(e) => setDeliveryTime(e.target.value)}
+                        disabled={!employee?.canChangeTime}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-2xs disabled:bg-slate-100 disabled:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+                      />
+                    </div>
+
+                    {selectedCompany && selectedCompany.addresses.length > 0 && (
+                      <div>
+                        <label htmlFor="delivery-address" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                          Delivery Address {!employee?.canChooseAddress && "(Company Default)"}
+                        </label>
+                        <select
+                          id="delivery-address"
+                          value={addressId}
+                          onChange={(e) => setAddressId(e.target.value)}
+                          disabled={!employee?.canChooseAddress}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-2xs disabled:bg-slate-100 disabled:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+                        >
+                          <option value="">Default Address</option>
+                          {selectedCompany.addresses.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+                        </select>
+                      </div>
+                    )}
+
+                    <div>
+                      <label htmlFor="packaging-input" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                        Packaging {!employee?.canChangePackaging && "(Company Default)"}
+                      </label>
+                      <input
+                        id="packaging-input"
+                        type="text"
+                        value={packagingType}
+                        onChange={(e) => setPackagingType(e.target.value)}
+                        disabled={!employee?.canChangePackaging}
+                        placeholder="Company default packaging"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-2xs disabled:bg-slate-100 disabled:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Total / Submit Action Card */}
+            {cart.length > 0 && (
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-600">Total Order Value</div>
+                <div className="mt-1 text-2xl font-extrabold text-slate-900">₹{orderTotal.toFixed(2)}</div>
+                
+                {submitError && (
+                  <div role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-2.5 text-xs font-bold text-rose-800">
+                    ⚠️ {submitError}
+                  </div>
+                )}
+
+                <div className="mt-4 flex flex-col gap-2">
+                  <button
+                    onClick={() => handleSubmit(false)}
+                    disabled={!canSubmit || submitting}
+                    className="cursor-pointer w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:ring-2 focus-visible:ring-emerald-600"
+                  >
+                    {submitting ? "Placing Order..." : "Place & Confirm Order"}
+                  </button>
+                  <button
+                    onClick={() => handleSubmit(true)}
+                    disabled={!canSubmit || submitting}
+                    className="cursor-pointer w-full rounded-lg border border-slate-300 bg-white py-2 text-sm font-semibold text-slate-800 shadow-2xs hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-slate-900"
+                  >
+                    Save as Draft
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 
-          {/* Order summary / submit */}
-          {cart.length > 0 && (
-            <div className="rounded-lg border bg-white p-4">
-              <h2 className="mb-2 font-medium">Order total</h2>
-              <div className="text-xl font-semibold">₹{orderTotal.toFixed(2)}</div>
-              {submitError && <p className="mt-2 text-sm text-red-600">{submitError}</p>}
-              <div className="mt-3 flex flex-col gap-2">
-                <button
-                  onClick={() => handleSubmit(false)}
-                  disabled={!canSubmit || submitting}
-                  className="rounded bg-black py-2 text-sm text-white disabled:opacity-40"
-                >
-                  {submitting ? "Placing..." : "Place order"}
-                </button>
-                <button
-                  onClick={() => handleSubmit(true)}
-                  disabled={!canSubmit || submitting}
-                  className="rounded border py-2 text-sm disabled:opacity-40"
-                >
-                  Save as draft
-                </button>
+          {/* Right Column: Menu Dishes & Cart Builder */}
+          <div className="space-y-6 lg:col-span-2">
+            {!employeeId ? (
+              <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
+                <p className="text-base font-semibold text-slate-800">No Employee Selected</p>
+                <p className="mt-1 text-sm text-slate-600">Choose a company and employee on the left to load their custom pricing and menu.</p>
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Right: menu + cart */}
-        <div className="space-y-4 lg:col-span-2">
-          {!employeeId ? (
-            <p className="text-neutral-500">Select a company and employee to see their menu.</p>
-          ) : !menu ? (
-            <p className="text-neutral-500">Loading menu...</p>
-          ) : (
-            <>
-              {menu.map((category) => (
-                <div key={category.id} className="rounded-lg border bg-white p-4">
-                  <h2 className="mb-3 font-medium">{category.name}</h2>
-                  <div className="space-y-2">
-                    {category.items.map((dish) => (
-                      <div key={dish.id} className="flex items-center justify-between border-b py-2 last:border-0">
-                        <div>
-                          <div className="font-medium">{dish.name}</div>
-                          {dish.description && <div className="text-sm text-neutral-500">{dish.description}</div>}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm">₹{Number(dish.price).toFixed(2)}</span>
-                          <button
-                            onClick={() => addDishToCart(dish)}
-                            className="rounded border px-3 py-1 text-sm hover:bg-neutral-50"
-                          >
-                            Add
-                          </button>
-                        </div>
+            ) : !menu ? (
+              <div className="flex h-64 items-center justify-center rounded-xl border border-slate-200 bg-white">
+                <p className="text-sm font-semibold text-slate-600">Loading custom employee menu...</p>
+              </div>
+            ) : (
+              <>
+                {/* Menu Categories */}
+                <div className="space-y-4">
+                  {menu.map((category) => (
+                    <div key={category.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+                      <h2 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-3 mb-3">
+                        {category.name}
+                      </h2>
+                      <div className="divide-y divide-slate-100">
+                        {category.items.map((dish) => (
+                          <div key={dish.id} className="flex items-center justify-between py-3">
+                            <div>
+                              <h3 className="text-sm font-bold text-slate-900">{dish.name}</h3>
+                              {dish.description && <p className="text-xs font-medium text-slate-600 mt-0.5">{dish.description}</p>}
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <span className="text-sm font-bold text-slate-900">₹{Number(dish.price).toFixed(2)}</span>
+                              <button
+                                onClick={() => addDishToCart(dish)}
+                                className="cursor-pointer rounded-lg bg-slate-900 px-3.5 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-slate-800 focus-visible:ring-2 focus-visible:ring-slate-900"
+                              >
+                                + Add
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
 
-              {cart.length > 0 && (
-                <div className="rounded-lg border bg-white p-4">
-                  <h2 className="mb-3 font-medium">Cart</h2>
-                  <div className="space-y-4">
-                    {cart.map((line) => (
-                      <CartLineEditor
-                        key={line.key}
-                        line={line}
-                        onQuantityChange={(q) => updateLineQuantity(line.key, q)}
-                        onRemove={() => removeLine(line.key)}
-                        onAddCombination={() => addCombination(line.key)}
-                        onUpdateCombination={(i, patch) => updateCombination(line.key, i, patch)}
-                        onRemoveCombination={(i) => removeCombination(line.key, i)}
-                        comboPrice={comboPrice}
-                        hasQuantityMismatch={lineHasQuantityMismatch(line)}
-                        missingRequiredGroup={lineMissingRequiredGroup(line)}
-                      />
-                    ))}
+                {/* Cart Items */}
+                {cart.length > 0 && (
+                  <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+                    <h2 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-3 mb-4">
+                      Configured Cart Items ({cart.length})
+                    </h2>
+                    <div className="space-y-4">
+                      {cart.map((line) => (
+                        <CartLineEditor
+                          key={line.key}
+                          line={line}
+                          onQuantityChange={(q) => updateLineQuantity(line.key, q)}
+                          onRemove={() => removeLine(line.key)}
+                          onAddCombination={() => addCombination(line.key)}
+                          onUpdateCombination={(i, patch) => updateCombination(line.key, i, patch)}
+                          onRemoveCombination={(i) => removeCombination(line.key, i)}
+                          comboPrice={comboPrice}
+                          hasQuantityMismatch={lineHasQuantityMismatch(line)}
+                          missingRequiredGroup={lineMissingRequiredGroup(line)}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </>
-          )}
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </AppShell>
@@ -373,56 +437,61 @@ function CartLineEditor({
   const comboSum = line.combinations.reduce((s, c) => s + c.quantity, 0);
 
   return (
-    <div className="rounded border p-3">
-      <div className="flex items-center justify-between">
-        <div className="font-medium">{line.dish.name}</div>
-        <div className="flex items-center gap-2">
+    <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+        <div className="font-bold text-slate-900 text-sm">{line.dish.name}</div>
+        <div className="flex items-center gap-3">
+          <label htmlFor={`line-qty-${line.key}`} className="text-xs font-bold text-slate-700">Qty:</label>
           <input
+            id={`line-qty-${line.key}`}
             type="number"
             min={1}
             value={line.quantity}
             onChange={(e) => onQuantityChange(parseInt(e.target.value, 10) || 1)}
-            className="w-16 rounded border px-2 py-1 text-sm"
+            className="w-16 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm font-bold text-slate-900 shadow-2xs"
           />
-          <button onClick={onRemove} className="text-sm text-red-600 hover:underline">Remove</button>
+          <button onClick={onRemove} className="cursor-pointer text-xs font-bold text-rose-700 hover:text-rose-900 hover:underline">
+            Remove
+          </button>
         </div>
       </div>
 
       {line.dish.optionGroups.length > 0 && (
-        <div className="mt-2 space-y-2">
+        <div className="mt-3 space-y-3">
           {line.combinations.map((combo, i) => (
-            <div key={i} className="rounded bg-neutral-50 p-2">
-              <div className="mb-1 flex items-center justify-between">
-                <span className="text-xs text-neutral-500">Combination {i + 1}</span>
+            <div key={i} className="rounded-lg border border-slate-200 bg-white p-3 shadow-2xs">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Portion / Combo {i + 1}</span>
                 <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-600">Qty:</span>
                   <input
                     type="number"
                     min={1}
                     value={combo.quantity}
                     onChange={(e) => onUpdateCombination(i, { quantity: parseInt(e.target.value, 10) || 1 })}
-                    className="w-14 rounded border px-1 py-0.5 text-xs"
+                    className="w-14 rounded-md border border-slate-300 bg-white px-2 py-0.5 text-xs font-bold text-slate-900"
                   />
                   {line.combinations.length > 1 && (
-                    <button onClick={() => onRemoveCombination(i)} className="text-xs text-red-600 hover:underline">
-                      Remove
+                    <button onClick={() => onRemoveCombination(i)} className="cursor-pointer text-xs font-bold text-rose-700 hover:underline">
+                      Delete
                     </button>
                   )}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {line.dish.optionGroups.map((group) => (
                   <div key={group.id}>
-                    <label className="block text-xs text-neutral-500">
-                      {group.name} {group.required && <span className="text-red-500">*</span>}
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      {group.name} {group.required && <span className="text-rose-600 font-bold">*</span>}
                     </label>
                     <select
                       value={combo.chosenOptions[group.id] ?? ""}
                       onChange={(e) =>
                         onUpdateCombination(i, { chosenOptions: { ...combo.chosenOptions, [group.id]: e.target.value } })
                       }
-                      className="w-full rounded border px-1 py-0.5 text-xs"
+                      className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-900 shadow-2xs"
                     >
-                      <option value="">{group.required ? "Choose..." : "None"}</option>
+                      <option value="">{group.required ? "Choose required..." : "None"}</option>
                       {group.options.map((o) => (
                         <option key={o.id} value={o.id}>{o.name} (+₹{Number(o.price).toFixed(2)})</option>
                       ))}
@@ -430,24 +499,26 @@ function CartLineEditor({
                   </div>
                 ))}
               </div>
-              <div className="mt-1 text-right text-xs text-neutral-500">
-                ₹{(comboPrice(line.dish, combo.chosenOptions) * combo.quantity).toFixed(2)}
+              <div className="mt-2 text-right text-xs font-bold text-emerald-800">
+                Subtotal: ₹{(comboPrice(line.dish, combo.chosenOptions) * combo.quantity).toFixed(2)}
               </div>
             </div>
           ))}
-          <button onClick={onAddCombination} className="text-xs text-blue-600 hover:underline">
-            + Add another combination
+          <button onClick={onAddCombination} className="cursor-pointer text-xs font-bold text-emerald-700 hover:text-emerald-900 hover:underline">
+            + Add Another Custom Combo Set
           </button>
         </div>
       )}
 
       {hasQuantityMismatch && (
-        <p className="mt-2 text-xs text-red-600">
-          Combination quantities ({comboSum}) must add up to the line quantity ({line.quantity})
+        <p className="mt-2 text-xs font-bold text-rose-700">
+          ⚠️ Combination quantities ({comboSum}) must equal total line quantity ({line.quantity})
         </p>
       )}
       {missingRequiredGroup && (
-        <p className="mt-2 text-xs text-red-600">Every combination needs a choice for each required group</p>
+        <p className="mt-2 text-xs font-bold text-rose-700">
+          ⚠️ Each combination requires a selected choice for mandatory option groups
+        </p>
       )}
     </div>
   );
