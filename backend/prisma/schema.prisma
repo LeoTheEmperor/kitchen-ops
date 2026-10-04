@@ -79,21 +79,21 @@ enum Temperature {
 }
 
 model Dish {
-  id          String      @id @default(cuid())
-  sku         String      @unique
+  id          String         @id @default(cuid())
+  sku         String         @unique
   name        String
   description String?
   imageUrl    String?
   temperature Temperature
-  costPrice   Decimal     @db.Decimal(10, 2)
+  costPrice   Decimal        @db.Decimal(10, 2)
   minOrderQty Int?
-  active      Boolean     @default(true)
+  active      Boolean        @default(true) // Soft delete flag
 
-  stationId String?
-  station   KitchenStation? @relation(fields: [stationId], references: [id])
+  stationId   String?
+  station     KitchenStation? @relation(fields: [stationId], references: [id])
 
-  allergies     DishAllergen[]
-  dietaryTags   DishDietaryTag[]
+  allergens   DishAllergen[]  
+  dietaryTags DishDietaryTag[]
   optionGroups  OptionGroup[]
   prices        DishPrice[]
   categoryItems CategoryItem[]
@@ -136,12 +136,12 @@ model OptionGroup {
 }
 
 model Option {
-  id        String  @id @default(cuid())
-  name      String
-  costPrice Decimal @db.Decimal(10, 2)
-  active    Boolean @default(true)
+  id          String            @id @default(cuid())
+  name        String
+  costPrice   Decimal           @db.Decimal(10, 2)
+  active      Boolean           @default(true)
 
-  allergies   OptionAllergen[]
+  allergens   OptionAllergen[]  // Renamed from 'allergies'
   dietaryTags OptionDietaryTag[]
   groupLinks  OptionGroupItem[]
   prices      OptionPrice[]
