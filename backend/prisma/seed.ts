@@ -20,6 +20,11 @@ function addDays(dateStr: string, days: number): string {
 
 async function main() {
   console.log('Seeding Fernleaf Kitchen...');
+  const existingStaff = await prisma.staff.count();
+  if (existingStaff > 0) {
+    console.log('Database already seeded (found existing staff accounts). Skipping seed.');
+    return;
+  }
   const today = todayDateString();
   console.log('Treating today as:', today);
 
