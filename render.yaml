@@ -1,0 +1,19 @@
+# Render Blueprint - optional, for reference/reproducibility.
+# You can also configure this service directly in Render's dashboard
+# instead of using this file; both are equivalent.
+services:
+  - type: web
+    name: fernleaf-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npx prisma migrate deploy && npm run start:prod
+    envVars:
+      - key: DATABASE_URL
+        sync: false # set manually from your Render Postgres instance
+      - key: JWT_SECRET
+        sync: false # set manually, any long random string
+      - key: FRONTEND_URL
+        sync: false # set after your Vercel URL exists, restricts CORS
+      - key: PORT
+        value: 3001
