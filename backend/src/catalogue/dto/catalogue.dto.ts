@@ -1,4 +1,13 @@
-import { IsString, IsOptional, IsEnum, IsNumber, IsBoolean, IsInt, Min, IsArray } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsNumber,
+  IsBoolean,
+  IsInt,
+  Min,
+  IsArray,
+} from 'class-validator';
 import { Temperature } from '@prisma/client';
 
 export class CreateDishDto {

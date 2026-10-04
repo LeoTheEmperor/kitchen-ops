@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -10,15 +14,27 @@ export class BillingService {
   // "Every confirmed order not yet invoiced" for a company (4.9).
   async getUninvoicedOrders(companyId: string) {
     return this.prisma.order.findMany({
-      where: { companyId, status: { in: [OrderStatus.CONFIRMED, OrderStatus.DELIVERED] }, invoiceId: null },
+      where: {
+        companyId,
+        status: { in: [OrderStatus.CONFIRMED, OrderStatus.DELIVERED] },
+        invoiceId: null,
+      },
       include: { lines: { include: { combinations: true } } },
       orderBy: { deliveryDate: 'asc' },
     });
   }
 
-  private computeOrderTotal(order: { lines: { combinations: { totalPriceSnapshot: Decimal }[] }[] }): Decimal {
+  private computeOrderTotal(order: {
+    lines: { combinations: { totalPriceSnapshot: Decimal }[] }[];
+  }): Decimal {
     return order.lines.reduce(
-      (sum, line) => sum.add(line.combinations.reduce((s, c) => s.add(c.totalPriceSnapshot), new Decimal(0))),
+      (sum, line) =>
+        sum.add(
+          line.combinations.reduce(
+            (s, c) => s.add(c.totalPriceSnapshot),
+            new Decimal(0),
+          ),
+        ),
       new Decimal(0),
     );
   }
@@ -28,23 +44,33 @@ export class BillingService {
   // relation itself (one-to-many from Invoice), so a second attempt to
   // invoice the same order is simply impossible via this code path.
   async createInvoice(companyId: string, orderIds: string[]) {
-    if (orderIds.length === 0) throw new BadRequestException('Select at least one order to invoice');
+    if (orderIds.length === 0)
+      throw new BadRequestException('Select at least one order to invoice');
 
     const orders = await this.prisma.order.findMany({
       where: { id: { in: orderIds }, companyId, invoiceId: null },
       include: { lines: { include: { combinations: true } } },
     });
     if (orders.length !== orderIds.length) {
-      throw new BadRequestException('One or more orders are invalid, already invoiced, or belong to a different company');
+      throw new BadRequestException(
+        'One or more orders are invalid, already invoiced, or belong to a different company',
+      );
     }
     const notConfirmedOrDelivered = orders.filter(
-      (o) => o.status !== OrderStatus.CONFIRMED && o.status !== OrderStatus.DELIVERED,
+      (o) =>
+        o.status !== OrderStatus.CONFIRMED &&
+        o.status !== OrderStatus.DELIVERED,
     );
     if (notConfirmedOrDelivered.length > 0) {
-      throw new BadRequestException('Only confirmed or delivered orders can be invoiced');
+      throw new BadRequestException(
+        'Only confirmed or delivered orders can be invoiced',
+      );
     }
 
-    const total = orders.reduce((sum, o) => sum.add(this.computeOrderTotal(o)), new Decimal(0));
+    const total = orders.reduce(
+      (sum, o) => sum.add(this.computeOrderTotal(o)),
+      new Decimal(0),
+    );
 
     return this.prisma.invoice.create({
       data: {
@@ -57,9 +83,14 @@ export class BillingService {
   }
 
   async markPaid(invoiceId: string) {
-    const invoice = await this.prisma.invoice.findUnique({ where: { id: invoiceId } });
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { id: invoiceId },
+    });
     if (!invoice) throw new NotFoundException('Invoice not found');
-    return this.prisma.invoice.update({ where: { id: invoiceId }, data: { paid: true, paidAt: new Date() } });
+    return this.prisma.invoice.update({
+      where: { id: invoiceId },
+      data: { paid: true, paidAt: new Date() },
+    });
   }
 
   findByCompany(companyId: string) {
@@ -73,7 +104,10 @@ export class BillingService {
   async findOne(id: string) {
     const invoice = await this.prisma.invoice.findUnique({
       where: { id },
-      include: { company: true, orders: { include: { lines: { include: { combinations: true } } } } },
+      include: {
+        company: true,
+        orders: { include: { lines: { include: { combinations: true } } } },
+      },
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
     return invoice;

@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PrepStatus, OrderStatus } from '@prisma/client';
 
@@ -31,7 +35,11 @@ export class KitchenService {
       for (const line of order.lines) {
         for (const combo of line.combinations) {
           const station = line.dish.station?.name ?? 'Unassigned';
-          if (stationId && line.dish.stationId !== stationId && !(stationId === 'unassigned' && !line.dish.stationId)) {
+          if (
+            stationId &&
+            line.dish.stationId !== stationId &&
+            !(stationId === 'unassigned' && !line.dish.stationId)
+          ) {
             continue;
           }
           units.push({
@@ -59,7 +67,9 @@ export class KitchenService {
   async startUnit(prepUnitId: string) {
     const unit = await this.prisma.prepUnit.findUnique({
       where: { id: prepUnitId },
-      include: { combination: { include: { orderLine: { include: { order: true } } } } },
+      include: {
+        combination: { include: { orderLine: { include: { order: true } } } },
+      },
     });
     if (!unit) throw new NotFoundException('Prep unit not found');
     if (unit.combination.orderLine.order.status !== OrderStatus.CONFIRMED) {
@@ -76,9 +86,14 @@ export class KitchenService {
 
     // "The order's kitchen started time is its first unit's start" (4.7)
     const orderId = unit.combination.orderLine.orderId;
-    const order = await this.prisma.order.findUniqueOrThrow({ where: { id: orderId } });
+    const order = await this.prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
+    });
     if (!order.kitchenStartedAt) {
-      await this.prisma.order.update({ where: { id: orderId }, data: { kitchenStartedAt: new Date() } });
+      await this.prisma.order.update({
+        where: { id: orderId },
+        data: { kitchenStartedAt: new Date() },
+      });
     }
 
     return updated;
@@ -87,7 +102,9 @@ export class KitchenService {
   async finishUnit(prepUnitId: string) {
     const unit = await this.prisma.prepUnit.findUnique({
       where: { id: prepUnitId },
-      include: { combination: { include: { orderLine: { include: { order: true } } } } },
+      include: {
+        combination: { include: { orderLine: { include: { order: true } } } },
+      },
     });
     if (!unit) throw new NotFoundException('Prep unit not found');
     if (unit.combination.orderLine.order.status !== OrderStatus.CONFIRMED) {
@@ -110,15 +127,22 @@ export class KitchenService {
       },
     });
 
-    const order = await this.prisma.order.findUniqueOrThrow({ where: { id: orderId } });
+    const order = await this.prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
+    });
     if (!order.kitchenStartedAt) {
-      await this.prisma.order.update({ where: { id: orderId }, data: { kitchenStartedAt: now } });
+      await this.prisma.order.update({
+        where: { id: orderId },
+        data: { kitchenStartedAt: now },
+      });
     }
 
     // "Kitchen ready time is set only when every unit is done" (4.7).
     await this.recomputeKitchenReadyIfComplete(orderId);
 
-    return this.prisma.prepUnit.findUniqueOrThrow({ where: { id: prepUnitId } });
+    return this.prisma.prepUnit.findUniqueOrThrow({
+      where: { id: prepUnitId },
+    });
   }
 
   private async recomputeKitchenReadyIfComplete(orderId: string) {
@@ -126,10 +150,17 @@ export class KitchenService {
       where: { orderId },
       include: { combinations: { include: { prepUnit: true } } },
     });
-    const allUnits = lines.flatMap((l) => l.combinations.map((c) => c.prepUnit));
-    const allDone = allUnits.length > 0 && allUnits.every((u) => u?.status === PrepStatus.DONE);
+    const allUnits = lines.flatMap((l) =>
+      l.combinations.map((c) => c.prepUnit),
+    );
+    const allDone =
+      allUnits.length > 0 &&
+      allUnits.every((u) => u?.status === PrepStatus.DONE);
     if (allDone) {
-      await this.prisma.order.update({ where: { id: orderId }, data: { kitchenReadyActualAt: new Date() } });
+      await this.prisma.order.update({
+        where: { id: orderId },
+        data: { kitchenReadyActualAt: new Date() },
+      });
     }
   }
 
@@ -145,7 +176,11 @@ export class KitchenService {
         if (combo.prepUnit) {
           await this.prisma.prepUnit.update({
             where: { id: combo.prepUnit.id },
-            data: { status: PrepStatus.DONE, startedAt: combo.prepUnit.startedAt ?? now, doneAt: now },
+            data: {
+              status: PrepStatus.DONE,
+              startedAt: combo.prepUnit.startedAt ?? now,
+              doneAt: now,
+            },
           });
         }
       }

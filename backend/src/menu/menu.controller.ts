@@ -17,19 +17,35 @@ export class MenuController {
 
   @Roles(StaffRole.ADMIN)
   @Post('categories')
-  createCategory(@Body() dto: { name: string; displayOrder?: number; secret?: boolean }) {
-    return this.menuService.createCategory(dto.name, dto.displayOrder ?? 0, dto.secret ?? false);
+  createCategory(
+    @Body() dto: { name: string; displayOrder?: number; secret?: boolean },
+  ) {
+    return this.menuService.createCategory(
+      dto.name,
+      dto.displayOrder ?? 0,
+      dto.secret ?? false,
+    );
   }
 
   @Roles(StaffRole.ADMIN)
   @Post('categories/:categoryId/items')
-  addItem(@Param('categoryId') categoryId: string, @Body() dto: { dishId: string; displayOrder?: number }) {
-    return this.menuService.addItem(categoryId, dto.dishId, dto.displayOrder ?? 0);
+  addItem(
+    @Param('categoryId') categoryId: string,
+    @Body() dto: { dishId: string; displayOrder?: number },
+  ) {
+    return this.menuService.addItem(
+      categoryId,
+      dto.dishId,
+      dto.displayOrder ?? 0,
+    );
   }
 
   @Roles(StaffRole.ADMIN)
   @Post('items/:categoryItemId/hide/:companyId')
-  hideItemForCompany(@Param('categoryItemId') categoryItemId: string, @Param('companyId') companyId: string) {
+  hideItemForCompany(
+    @Param('categoryItemId') categoryItemId: string,
+    @Param('companyId') companyId: string,
+  ) {
     return this.menuService.hideItemForCompany(categoryItemId, companyId);
   }
 

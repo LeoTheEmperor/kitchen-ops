@@ -94,7 +94,7 @@ function DispatchDashboard({ data }: { data: any }) {
   return (
     <div>
       <h1 className="mb-1 text-lg font-semibold">Dispatch — {data.date}</h1>
-      <p className="mb-4 text-sm text-neutral-500">Today's delivery pipeline</p>
+      <p className="mb-4 text-sm text-neutral-500">Today&apos;s delivery pipeline</p>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {statuses.map(([status, count]) => (
           <StatCard key={status} label={status.replace(/_/g, " ")} value={count} />

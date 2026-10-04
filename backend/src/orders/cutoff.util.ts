@@ -12,7 +12,11 @@ export interface CutoffInputs {
   timezone: string; // IANA tz, e.g. "Asia/Kolkata"
 }
 
-function isKitchenWorkingDay(date: DateTime, workingDays: number[], holidays: string[]): boolean {
+function isKitchenWorkingDay(
+  date: DateTime,
+  workingDays: number[],
+  holidays: string[],
+): boolean {
   const weekday = date.weekday % 7; // Luxon: Mon=1..Sun=7 -> convert to Sun=0..Sat=6
   if (!workingDays.includes(weekday)) return false;
   const dateStr = date.toFormat('yyyy-MM-dd');
@@ -24,8 +28,17 @@ function isKitchenWorkingDay(date: DateTime, workingDays: number[], holidays: st
 // Example: cutoff of 2 working days at 16:00, Wednesday delivery -> locks
 // Monday 16:00 (skips the weekend entirely if Sat/Sun aren't working days).
 export function calculateCutoffInstant(inputs: CutoffInputs): DateTime {
-  const { deliveryDate, cutoffDays, cutoffTime, kitchenWorkingDays, kitchenHolidays, timezone } = inputs;
-  let cursor = DateTime.fromFormat(deliveryDate, 'yyyy-MM-dd', { zone: timezone });
+  const {
+    deliveryDate,
+    cutoffDays,
+    cutoffTime,
+    kitchenWorkingDays,
+    kitchenHolidays,
+    timezone,
+  } = inputs;
+  let cursor = DateTime.fromFormat(deliveryDate, 'yyyy-MM-dd', {
+    zone: timezone,
+  });
 
   let daysToSkip = cutoffDays;
   while (daysToSkip > 0) {
@@ -40,7 +53,10 @@ export function calculateCutoffInstant(inputs: CutoffInputs): DateTime {
   return cursor.set({ hour, minute, second: 0, millisecond: 0 });
 }
 
-export function isPastCutoff(inputs: CutoffInputs, now: DateTime = DateTime.now()): boolean {
+export function isPastCutoff(
+  inputs: CutoffInputs,
+  now: DateTime = DateTime.now(),
+): boolean {
   const cutoffInstant = calculateCutoffInstant(inputs);
   return now >= cutoffInstant;
 }

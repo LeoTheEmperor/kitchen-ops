@@ -29,17 +29,37 @@ export class DashboardService {
     const today = this.todayDateString();
     const todayDate = new Date(today);
 
-    const [ordersToday, confirmedToday, kitchenDoneToday, deliveredToday, uninvoicedCount, companiesCount] =
-      await Promise.all([
-        this.prisma.order.count({ where: { deliveryDate: todayDate, status: { not: OrderStatus.CANCELLED } } }),
-        this.prisma.order.count({ where: { deliveryDate: todayDate, status: OrderStatus.CONFIRMED } }),
-        this.prisma.order.count({ where: { deliveryDate: todayDate, kitchenReadyActualAt: { not: null } } }),
-        this.prisma.order.count({ where: { deliveryDate: todayDate, status: OrderStatus.DELIVERED } }),
-        this.prisma.order.count({
-          where: { status: { in: [OrderStatus.CONFIRMED, OrderStatus.DELIVERED] }, invoiceId: null },
-        }),
-        this.prisma.company.count({ where: { active: true } }),
-      ]);
+    const [
+      ordersToday,
+      confirmedToday,
+      kitchenDoneToday,
+      deliveredToday,
+      uninvoicedCount,
+      companiesCount,
+    ] = await Promise.all([
+      this.prisma.order.count({
+        where: {
+          deliveryDate: todayDate,
+          status: { not: OrderStatus.CANCELLED },
+        },
+      }),
+      this.prisma.order.count({
+        where: { deliveryDate: todayDate, status: OrderStatus.CONFIRMED },
+      }),
+      this.prisma.order.count({
+        where: { deliveryDate: todayDate, kitchenReadyActualAt: { not: null } },
+      }),
+      this.prisma.order.count({
+        where: { deliveryDate: todayDate, status: OrderStatus.DELIVERED },
+      }),
+      this.prisma.order.count({
+        where: {
+          status: { in: [OrderStatus.CONFIRMED, OrderStatus.DELIVERED] },
+          invoiceId: null,
+        },
+      }),
+      this.prisma.company.count({ where: { active: true } }),
+    ]);
 
     return {
       date: today,
@@ -65,19 +85,30 @@ export class DashboardService {
     const todayDate = new Date(today);
 
     const lines = await this.prisma.orderLine.findMany({
-      where: { order: { deliveryDate: todayDate, status: OrderStatus.CONFIRMED } },
-      include: { dish: { include: { station: true } }, combinations: { include: { prepUnit: true } } },
+      where: {
+        order: { deliveryDate: todayDate, status: OrderStatus.CONFIRMED },
+      },
+      include: {
+        dish: { include: { station: true } },
+        combinations: { include: { prepUnit: true } },
+      },
     });
 
-    const byStation: Record<string, { pending: number; started: number; done: number }> = {};
+    const byStation: Record<
+      string,
+      { pending: number; started: number; done: number }
+    > = {};
     for (const line of lines) {
       const station = line.dish.station?.name ?? 'Unassigned';
       byStation[station] ??= { pending: 0, started: 0, done: 0 };
       for (const combo of line.combinations) {
         const status = combo.prepUnit?.status ?? PrepStatus.PENDING;
-        if (status === PrepStatus.PENDING) byStation[station].pending += combo.quantity;
-        if (status === PrepStatus.STARTED) byStation[station].started += combo.quantity;
-        if (status === PrepStatus.DONE) byStation[station].done += combo.quantity;
+        if (status === PrepStatus.PENDING)
+          byStation[station].pending += combo.quantity;
+        if (status === PrepStatus.STARTED)
+          byStation[station].started += combo.quantity;
+        if (status === PrepStatus.DONE)
+          byStation[station].done += combo.quantity;
       }
     }
 
@@ -120,7 +151,12 @@ export class DashboardService {
       if (!d.driverId) unassigned += 1;
     }
 
-    return { date: today, byStatus, unassignedCount: unassigned, totalDeliveriesToday: deliveries.length };
+    return {
+      date: today,
+      byStatus,
+      unassignedCount: unassigned,
+      totalDeliveriesToday: deliveries.length,
+    };
   }
 
   // ── Driver dashboard ────────────────────────────────────────────────
@@ -133,7 +169,9 @@ export class DashboardService {
     const deliveries = await this.prisma.delivery.findMany({
       where: { driverId, order: { deliveryDate: todayDate } },
     });
-    const delivered = deliveries.filter((d) => d.status === DeliveryStatus.DELIVERED).length;
+    const delivered = deliveries.filter(
+      (d) => d.status === DeliveryStatus.DELIVERED,
+    ).length;
     const remaining = deliveries.length - delivered;
 
     return { date: today, totalStops: deliveries.length, delivered, remaining };

@@ -1,6 +1,20 @@
-import { Body, Controller, Get, Post, Patch, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { CatalogueService } from './catalogue.service';
-import { CreateDishDto, UpdateDishDto, CreateOptionDto, CreateOptionGroupDto } from './dto/catalogue.dto';
+import {
+  CreateDishDto,
+  UpdateDishDto,
+  CreateOptionDto,
+  CreateOptionGroupDto,
+} from './dto/catalogue.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -60,7 +74,10 @@ export class CatalogueController {
 
   @Roles(StaffRole.ADMIN)
   @Post('dishes/:dishId/option-groups')
-  createOptionGroup(@Param('dishId') dishId: string, @Body() dto: CreateOptionGroupDto) {
+  createOptionGroup(
+    @Param('dishId') dishId: string,
+    @Body() dto: CreateOptionGroupDto,
+  ) {
     return this.catalogueService.createOptionGroup(dishId, dto);
   }
 

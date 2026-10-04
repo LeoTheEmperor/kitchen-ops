@@ -17,7 +17,14 @@ export class StaffService {
 
   findAll() {
     return this.prisma.staff.findMany({
-      select: { id: true, email: true, name: true, role: true, active: true, createdAt: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        active: true,
+        createdAt: true,
+      },
     });
   }
 

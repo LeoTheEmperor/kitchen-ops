@@ -1,6 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateDishDto, UpdateDishDto, CreateOptionDto, CreateOptionGroupDto } from './dto/catalogue.dto';
+import {
+  CreateDishDto,
+  UpdateDishDto,
+  CreateOptionDto,
+  CreateOptionGroupDto,
+} from './dto/catalogue.dto';
 
 @Injectable()
 export class CatalogueService {
@@ -32,7 +37,12 @@ export class CatalogueService {
         dietaryTags: { include: { dietaryTag: true } },
         optionGroups: {
           orderBy: { displayOrder: 'asc' },
-          include: { options: { include: { option: true }, orderBy: { displayOrder: 'asc' } } },
+          include: {
+            options: {
+              include: { option: true },
+              orderBy: { displayOrder: 'asc' },
+            },
+          },
         },
       },
     });
@@ -55,7 +65,11 @@ export class CatalogueService {
           ? { create: dto.allergenIds.map((allergenId) => ({ allergenId })) }
           : undefined,
         dietaryTags: dto.dietaryTagIds
-          ? { create: dto.dietaryTagIds.map((dietaryTagId) => ({ dietaryTagId })) }
+          ? {
+              create: dto.dietaryTagIds.map((dietaryTagId) => ({
+                dietaryTagId,
+              })),
+            }
           : undefined,
       },
     });
@@ -86,7 +100,11 @@ export class CatalogueService {
           ? { create: dto.allergenIds.map((allergenId) => ({ allergenId })) }
           : undefined,
         dietaryTags: dto.dietaryTagIds
-          ? { create: dto.dietaryTagIds.map((dietaryTagId) => ({ dietaryTagId })) }
+          ? {
+              create: dto.dietaryTagIds.map((dietaryTagId) => ({
+                dietaryTagId,
+              })),
+            }
           : undefined,
       },
     });
@@ -105,7 +123,10 @@ export class CatalogueService {
   findAllOptions() {
     return this.prisma.option.findMany({
       where: { active: true },
-      include: { allergens: { include: { allergen: true } }, dietaryTags: { include: { dietaryTag: true } } },
+      include: {
+        allergens: { include: { allergen: true } },
+        dietaryTags: { include: { dietaryTag: true } },
+      },
       orderBy: { name: 'asc' },
     });
   }
@@ -119,7 +140,11 @@ export class CatalogueService {
           ? { create: dto.allergenIds.map((allergenId) => ({ allergenId })) }
           : undefined,
         dietaryTags: dto.dietaryTagIds
-          ? { create: dto.dietaryTagIds.map((dietaryTagId) => ({ dietaryTagId })) }
+          ? {
+              create: dto.dietaryTagIds.map((dietaryTagId) => ({
+                dietaryTagId,
+              })),
+            }
           : undefined,
       },
     });
@@ -138,7 +163,10 @@ export class CatalogueService {
         displayOrder: dto.displayOrder ?? 0,
         usesPortions: dto.usesPortions ?? false,
         options: {
-          create: dto.optionIds.map((optionId, index) => ({ optionId, displayOrder: index })),
+          create: dto.optionIds.map((optionId, index) => ({
+            optionId,
+            displayOrder: index,
+          })),
         },
       },
       include: { options: { include: { option: true } } },

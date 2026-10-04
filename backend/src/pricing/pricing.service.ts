@@ -16,19 +16,31 @@ export class PricingService {
   async createTier(name: string, isDefault: boolean) {
     if (isDefault) {
       // Only one tier may be default at a time.
-      await this.prisma.priceTier.updateMany({ data: { isDefault: false }, where: { isDefault: true } });
+      await this.prisma.priceTier.updateMany({
+        data: { isDefault: false },
+        where: { isDefault: true },
+      });
     }
     return this.prisma.priceTier.create({ data: { name, isDefault } });
   }
 
   async setDefaultTier(tierId: string) {
-    await this.prisma.priceTier.updateMany({ data: { isDefault: false }, where: { isDefault: true } });
-    return this.prisma.priceTier.update({ where: { id: tierId }, data: { isDefault: true } });
+    await this.prisma.priceTier.updateMany({
+      data: { isDefault: false },
+      where: { isDefault: true },
+    });
+    return this.prisma.priceTier.update({
+      where: { id: tierId },
+      data: { isDefault: true },
+    });
   }
 
   private async getDefaultTier() {
-    const tier = await this.prisma.priceTier.findFirst({ where: { isDefault: true } });
-    if (!tier) throw new BadRequestException('No default price tier configured');
+    const tier = await this.prisma.priceTier.findFirst({
+      where: { isDefault: true },
+    });
+    if (!tier)
+      throw new BadRequestException('No default price tier configured');
     return tier;
   }
 
@@ -43,34 +55,52 @@ export class PricingService {
   // ── Resolve a single dish's price on a tier ────────────────────────
   // Returns null if the dish has no price on this tier at all (4.3.5: must
   // not appear on the menu, not show $0).
-  async resolveDishPrice(dishId: string, tierId: string): Promise<Decimal | null> {
+  async resolveDishPrice(
+    dishId: string,
+    tierId: string,
+  ): Promise<Decimal | null> {
     const row = await this.prisma.dishPrice.findUnique({
       where: { dishId_priceTierId: { dishId, priceTierId: tierId } },
     });
     if (!row) return null;
-    return this.resolvePriceRow(row, async () => {
-      const dish = await this.prisma.dish.findUniqueOrThrow({ where: { id: dishId } });
-      return dish.costPrice;
-    }, async () => {
-      const defaultTier = await this.getDefaultTier();
-      if (defaultTier.id === tierId) return null; // avoid infinite recursion on the default tier itself
-      return this.resolveDishPrice(dishId, defaultTier.id);
-    });
+    return this.resolvePriceRow(
+      row,
+      async () => {
+        const dish = await this.prisma.dish.findUniqueOrThrow({
+          where: { id: dishId },
+        });
+        return dish.costPrice;
+      },
+      async () => {
+        const defaultTier = await this.getDefaultTier();
+        if (defaultTier.id === tierId) return null; // avoid infinite recursion on the default tier itself
+        return this.resolveDishPrice(dishId, defaultTier.id);
+      },
+    );
   }
 
-  async resolveOptionPrice(optionId: string, tierId: string): Promise<Decimal | null> {
+  async resolveOptionPrice(
+    optionId: string,
+    tierId: string,
+  ): Promise<Decimal | null> {
     const row = await this.prisma.optionPrice.findUnique({
       where: { optionId_priceTierId: { optionId, priceTierId: tierId } },
     });
     if (!row) return null;
-    return this.resolvePriceRow(row, async () => {
-      const option = await this.prisma.option.findUniqueOrThrow({ where: { id: optionId } });
-      return option.costPrice;
-    }, async () => {
-      const defaultTier = await this.getDefaultTier();
-      if (defaultTier.id === tierId) return null;
-      return this.resolveOptionPrice(optionId, defaultTier.id);
-    });
+    return this.resolvePriceRow(
+      row,
+      async () => {
+        const option = await this.prisma.option.findUniqueOrThrow({
+          where: { id: optionId },
+        });
+        return option.costPrice;
+      },
+      async () => {
+        const defaultTier = await this.getDefaultTier();
+        if (defaultTier.id === tierId) return null;
+        return this.resolveOptionPrice(optionId, defaultTier.id);
+      },
+    );
   }
 
   // Shared resolution logic for both DishPrice and OptionPrice rows (4.3.6):
@@ -80,7 +110,11 @@ export class PricingService {
   // In every derived case, an explicitPrice if also set acts as a staff override
   // that wins over the formula (4.3.6: "staff can still override individual prices").
   private async resolvePriceRow(
-    row: { explicitPrice: Decimal | null; derivation: DerivationType; derivationValue: Decimal | null },
+    row: {
+      explicitPrice: Decimal | null;
+      derivation: DerivationType;
+      derivationValue: Decimal | null;
+    },
     getCostPrice: () => Promise<Decimal>,
     getDefaultTierPrice: () => Promise<Decimal | null>,
   ): Promise<Decimal | null> {
@@ -100,7 +134,9 @@ export class PricingService {
     if (row.derivation === DerivationType.MARKUP_PERCENT) {
       const basePrice = await getDefaultTierPrice();
       if (basePrice == null) return null; // nothing to mark up from
-      const markedUp = basePrice.mul(new Decimal(1).add(row.derivationValue.div(100)));
+      const markedUp = basePrice.mul(
+        new Decimal(1).add(row.derivationValue.div(100)),
+      );
       return this.roundUpToNickel(markedUp);
     }
     return null;
@@ -109,7 +145,10 @@ export class PricingService {
   // ── Admin tier editing view (4.3.7): see/edit a whole tier, spot gaps ──
   async getTierSheet(tierId: string) {
     const [dishes, dishPrices] = await Promise.all([
-      this.prisma.dish.findMany({ where: { active: true }, orderBy: { name: 'asc' } }),
+      this.prisma.dish.findMany({
+        where: { active: true },
+        orderBy: { name: 'asc' },
+      }),
       this.prisma.dishPrice.findMany({ where: { priceTierId: tierId } }),
     ]);
     const priceByDish = new Map(dishPrices.map((p) => [p.dishId, p]));
@@ -133,7 +172,11 @@ export class PricingService {
   async upsertDishPrice(
     dishId: string,
     tierId: string,
-    data: { explicitPrice?: number; derivation?: DerivationType; derivationValue?: number },
+    data: {
+      explicitPrice?: number;
+      derivation?: DerivationType;
+      derivationValue?: number;
+    },
   ) {
     return this.prisma.dishPrice.upsert({
       where: { dishId_priceTierId: { dishId, priceTierId: tierId } },
@@ -155,7 +198,11 @@ export class PricingService {
   async upsertOptionPrice(
     optionId: string,
     tierId: string,
-    data: { explicitPrice?: number; derivation?: DerivationType; derivationValue?: number },
+    data: {
+      explicitPrice?: number;
+      derivation?: DerivationType;
+      derivationValue?: number;
+    },
   ) {
     return this.prisma.optionPrice.upsert({
       where: { optionId_priceTierId: { optionId, priceTierId: tierId } },
@@ -176,7 +223,9 @@ export class PricingService {
 
   // ── Resolve the tier an employee actually prices against (4.3.4) ──────
   async resolveEmployeeTierId(companyId: string): Promise<string> {
-    const company = await this.prisma.company.findUniqueOrThrow({ where: { id: companyId } });
+    const company = await this.prisma.company.findUniqueOrThrow({
+      where: { id: companyId },
+    });
     if (company.priceTierId) return company.priceTierId;
     const defaultTier = await this.getDefaultTier();
     return defaultTier.id;

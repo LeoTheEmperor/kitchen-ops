@@ -36,7 +36,12 @@ export class PricingController {
   upsertDishPrice(
     @Param('tierId') tierId: string,
     @Param('dishId') dishId: string,
-    @Body() dto: { explicitPrice?: number; derivation?: DerivationType; derivationValue?: number },
+    @Body()
+    dto: {
+      explicitPrice?: number;
+      derivation?: DerivationType;
+      derivationValue?: number;
+    },
   ) {
     return this.pricingService.upsertDishPrice(dishId, tierId, dto);
   }
@@ -45,7 +50,12 @@ export class PricingController {
   upsertOptionPrice(
     @Param('tierId') tierId: string,
     @Param('optionId') optionId: string,
-    @Body() dto: { explicitPrice?: number; derivation?: DerivationType; derivationValue?: number },
+    @Body()
+    dto: {
+      explicitPrice?: number;
+      derivation?: DerivationType;
+      derivationValue?: number;
+    },
   ) {
     return this.pricingService.upsertOptionPrice(optionId, tierId, dto);
   }

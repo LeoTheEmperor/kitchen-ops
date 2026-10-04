@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEmployeeDto } from './dto/employee.dto';
 import { BLOCKED_PUBLIC_DOMAINS } from '../companies/dto/company.dto';
@@ -10,7 +15,10 @@ export class EmployeesService {
   findAllByCompany(companyId: string) {
     return this.prisma.employee.findMany({
       where: { companyId },
-      include: { allergies: { include: { allergen: true } }, dietaryPreferences: { include: { dietaryTag: true } } },
+      include: {
+        allergies: { include: { allergen: true } },
+        dietaryPreferences: { include: { dietaryTag: true } },
+      },
       orderBy: { name: 'asc' },
     });
   }
@@ -35,17 +43,26 @@ export class EmployeesService {
     const domain = email.split('@')[1]?.toLowerCase();
     if (!domain) throw new BadRequestException('Invalid email');
     if (BLOCKED_PUBLIC_DOMAINS.includes(domain)) {
-      throw new BadRequestException(`"${domain}" is a public email domain and cannot be used for an employee`);
+      throw new BadRequestException(
+        `"${domain}" is a public email domain and cannot be used for an employee`,
+      );
     }
-    const match = await this.prisma.companyDomain.findFirst({ where: { companyId, domain } });
+    const match = await this.prisma.companyDomain.findFirst({
+      where: { companyId, domain },
+    });
     if (!match) {
-      throw new BadRequestException(`Email domain "${domain}" is not registered to this company`);
+      throw new BadRequestException(
+        `Email domain "${domain}" is not registered to this company`,
+      );
     }
   }
 
   async create(dto: CreateEmployeeDto) {
-    const existing = await this.prisma.employee.findUnique({ where: { email: dto.email } });
-    if (existing) throw new ConflictException('An employee with this email already exists');
+    const existing = await this.prisma.employee.findUnique({
+      where: { email: dto.email },
+    });
+    if (existing)
+      throw new ConflictException('An employee with this email already exists');
     await this.assertDomainMatchesCompany(dto.email, dto.companyId);
 
     return this.prisma.employee.create({
@@ -60,7 +77,11 @@ export class EmployeesService {
           ? { create: dto.allergenIds.map((allergenId) => ({ allergenId })) }
           : undefined,
         dietaryPreferences: dto.dietaryTagIds
-          ? { create: dto.dietaryTagIds.map((dietaryTagId) => ({ dietaryTagId })) }
+          ? {
+              create: dto.dietaryTagIds.map((dietaryTagId) => ({
+                dietaryTagId,
+              })),
+            }
           : undefined,
       },
     });
@@ -73,18 +94,31 @@ export class EmployeesService {
   async moveToCompany(employeeId: string, newCompanyId: string) {
     const employee = await this.findOne(employeeId);
     await this.assertDomainMatchesCompany(employee.email, newCompanyId);
-    return this.prisma.employee.update({ where: { id: employeeId }, data: { companyId: newCompanyId } });
+    return this.prisma.employee.update({
+      where: { id: employeeId },
+      data: { companyId: newCompanyId },
+    });
   }
 
   setPermissions(
     employeeId: string,
-    perms: { canChooseAddress?: boolean; canChangeTime?: boolean; canChangePackaging?: boolean },
+    perms: {
+      canChooseAddress?: boolean;
+      canChangeTime?: boolean;
+      canChangePackaging?: boolean;
+    },
   ) {
-    return this.prisma.employee.update({ where: { id: employeeId }, data: perms });
+    return this.prisma.employee.update({
+      where: { id: employeeId },
+      data: perms,
+    });
   }
 
   deactivate(id: string) {
-    return this.prisma.employee.update({ where: { id }, data: { active: false } });
+    return this.prisma.employee.update({
+      where: { id },
+      data: { active: false },
+    });
   }
 
   // CSV bulk import is [Should], not [Must] - intentionally not built, see README.

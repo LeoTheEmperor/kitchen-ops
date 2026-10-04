@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Patch, Param, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 import { StaffService } from './staff.service';
 import { CreateStaffDto } from './dto/staff.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -20,7 +28,12 @@ export class StaffController {
 
   @Post()
   create(@Body() dto: CreateStaffDto) {
-    return this.staffService.create(dto.email, dto.password, dto.name, dto.role);
+    return this.staffService.create(
+      dto.email,
+      dto.password,
+      dto.name,
+      dto.role,
+    );
   }
 
   @Patch(':id/deactivate')

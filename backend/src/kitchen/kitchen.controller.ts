@@ -12,7 +12,10 @@ export class KitchenController {
   constructor(private readonly kitchenService: KitchenService) {}
 
   @Get('board')
-  getBoard(@Query('deliveryDate') deliveryDate: string, @Query('stationId') stationId?: string) {
+  getBoard(
+    @Query('deliveryDate') deliveryDate: string,
+    @Query('stationId') stationId?: string,
+  ) {
     return this.kitchenService.getBoard(deliveryDate, stationId);
   }
 

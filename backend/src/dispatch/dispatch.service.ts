@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DeliveryStatus, OrderStatus } from '@prisma/client';
 
@@ -22,7 +27,11 @@ export class DispatchService {
     const dateObj = new Date(deliveryDate);
     const orders = await this.prisma.order.findMany({
       where: { deliveryDate: dateObj, status: OrderStatus.CONFIRMED },
-      include: { company: true, address: true, delivery: { include: { driver: true } } },
+      include: {
+        company: true,
+        address: true,
+        delivery: { include: { driver: true } },
+      },
     });
 
     const drops = new Map<string, any>();
@@ -49,14 +58,27 @@ export class DispatchService {
   }
 
   // Assigns a driver to every order in a drop (grouped by company+address+time).
-  async assignDriverToDrop(companyId: string, addressId: string, deliveryTime: string, driverId: string) {
+  async assignDriverToDrop(
+    companyId: string,
+    addressId: string,
+    deliveryTime: string,
+    driverId: string,
+  ) {
     const orders = await this.prisma.order.findMany({
-      where: { companyId, addressId, deliveryTime, status: OrderStatus.CONFIRMED },
+      where: {
+        companyId,
+        addressId,
+        deliveryTime,
+        status: OrderStatus.CONFIRMED,
+      },
       include: { delivery: true },
     });
     for (const order of orders) {
       if (order.delivery) {
-        await this.prisma.delivery.update({ where: { id: order.delivery.id }, data: { driverId } });
+        await this.prisma.delivery.update({
+          where: { id: order.delivery.id },
+          data: { driverId },
+        });
       }
     }
     return { updated: orders.length };
@@ -66,22 +88,30 @@ export class DispatchService {
     const currentIdx = STATUS_ORDER.indexOf(current);
     const nextIdx = STATUS_ORDER.indexOf(next);
     if (nextIdx !== currentIdx + 1) {
-      throw new BadRequestException(`Cannot move from ${current} to ${next} - each step requires the previous one`);
+      throw new BadRequestException(
+        `Cannot move from ${current} to ${next} - each step requires the previous one`,
+      );
     }
   }
 
   async advanceStatus(deliveryId: string, next: DeliveryStatus) {
-    const delivery = await this.prisma.delivery.findUnique({ where: { id: deliveryId } });
+    const delivery = await this.prisma.delivery.findUnique({
+      where: { id: deliveryId },
+    });
     if (!delivery) throw new NotFoundException('Delivery not found');
     this.assertSequential(delivery.status, next);
 
     if (next === DeliveryStatus.OUT_FOR_DELIVERY && !delivery.driverId) {
-      throw new BadRequestException('"Out for delivery" requires an assigned driver'); // (4.8)
+      throw new BadRequestException(
+        '"Out for delivery" requires an assigned driver',
+      ); // (4.8)
     }
 
     const data: any = { status: next };
-    if (next === DeliveryStatus.DISPATCH_READY) data.dispatchReadyAt = new Date();
-    if (next === DeliveryStatus.OUT_FOR_DELIVERY) data.outForDeliveryAt = new Date();
+    if (next === DeliveryStatus.DISPATCH_READY)
+      data.dispatchReadyAt = new Date();
+    if (next === DeliveryStatus.OUT_FOR_DELIVERY)
+      data.outForDeliveryAt = new Date();
 
     return this.prisma.delivery.update({ where: { id: deliveryId }, data });
   }
@@ -99,7 +129,10 @@ export class DispatchService {
   }
 
   async markDelivered(deliveryId: string, driverId: string, note?: string) {
-    const delivery = await this.prisma.delivery.findUnique({ where: { id: deliveryId }, include: { order: true } });
+    const delivery = await this.prisma.delivery.findUnique({
+      where: { id: deliveryId },
+      include: { order: true },
+    });
     if (!delivery) throw new NotFoundException('Delivery not found');
     if (delivery.driverId !== driverId) {
       throw new ForbiddenException('This delivery is not assigned to you');
@@ -116,9 +149,17 @@ export class DispatchService {
 
     const updated = await this.prisma.delivery.update({
       where: { id: deliveryId },
-      data: { status: DeliveryStatus.DELIVERED, deliveredAt: now, onTime, deliveryNote: note },
+      data: {
+        status: DeliveryStatus.DELIVERED,
+        deliveredAt: now,
+        onTime,
+        deliveryNote: note,
+      },
     });
-    await this.prisma.order.update({ where: { id: delivery.orderId }, data: { status: OrderStatus.DELIVERED } });
+    await this.prisma.order.update({
+      where: { id: delivery.orderId },
+      data: { status: OrderStatus.DELIVERED },
+    });
     return updated;
   }
 }

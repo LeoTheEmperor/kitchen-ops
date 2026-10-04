@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Post, Patch, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { EmployeesService } from './employees.service';
 import { CreateEmployeeDto, MoveEmployeeDto } from './dto/employee.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -37,7 +46,12 @@ export class EmployeesController {
   @Patch(':id/permissions')
   setPermissions(
     @Param('id') id: string,
-    @Body() dto: { canChooseAddress?: boolean; canChangeTime?: boolean; canChangePackaging?: boolean },
+    @Body()
+    dto: {
+      canChooseAddress?: boolean;
+      canChangeTime?: boolean;
+      canChangePackaging?: boolean;
+    },
   ) {
     return this.employeesService.setPermissions(id, dto);
   }

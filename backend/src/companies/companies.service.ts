@@ -1,6 +1,15 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateCompanyDto, AddCompanyAddressDto, BLOCKED_PUBLIC_DOMAINS } from './dto/company.dto';
+import {
+  CreateCompanyDto,
+  AddCompanyAddressDto,
+  BLOCKED_PUBLIC_DOMAINS,
+} from './dto/company.dto';
 
 @Injectable()
 export class CompaniesService {
@@ -35,11 +44,17 @@ export class CompaniesService {
     for (const domain of domains) {
       const normalized = domain.toLowerCase().trim();
       if (BLOCKED_PUBLIC_DOMAINS.includes(normalized)) {
-        throw new BadRequestException(`"${normalized}" is a public email domain and cannot be used for a company`);
+        throw new BadRequestException(
+          `"${normalized}" is a public email domain and cannot be used for a company`,
+        );
       }
-      const existing = await this.prisma.companyDomain.findUnique({ where: { domain: normalized } });
+      const existing = await this.prisma.companyDomain.findUnique({
+        where: { domain: normalized },
+      });
       if (existing && existing.companyId !== excludeCompanyId) {
-        throw new ConflictException(`Domain "${normalized}" is already claimed by another company`);
+        throw new ConflictException(
+          `Domain "${normalized}" is already claimed by another company`,
+        );
       }
     }
   }
@@ -56,7 +71,11 @@ export class CompaniesService {
         driverInstructions: dto.driverInstructions,
         defaultDriverId: dto.defaultDriverId,
         workingDays: dto.workingDays ?? [1, 2, 3, 4, 5],
-        domains: { create: dto.domains.map((domain) => ({ domain: domain.toLowerCase().trim() })) },
+        domains: {
+          create: dto.domains.map((domain) => ({
+            domain: domain.toLowerCase().trim(),
+          })),
+        },
       },
     });
   }
@@ -74,16 +93,26 @@ export class CompaniesService {
   }
 
   async setOwner(companyId: string, employeeId: string) {
-    const employee = await this.prisma.employee.findUnique({ where: { id: employeeId } });
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: employeeId },
+    });
     if (!employee || employee.companyId !== companyId) {
-      throw new BadRequestException('Owner must be an employee of this company');
+      throw new BadRequestException(
+        'Owner must be an employee of this company',
+      );
     }
-    return this.prisma.company.update({ where: { id: companyId }, data: { ownerEmployeeId: employeeId } });
+    return this.prisma.company.update({
+      where: { id: companyId },
+      data: { ownerEmployeeId: employeeId },
+    });
   }
 
   async setPriceTier(companyId: string, priceTierId: string) {
     await this.findOne(companyId);
-    return this.prisma.company.update({ where: { id: companyId }, data: { priceTierId } });
+    return this.prisma.company.update({
+      where: { id: companyId },
+      data: { priceTierId },
+    });
   }
 
   async hideCategory(companyId: string, categoryId: string) {
@@ -95,7 +124,9 @@ export class CompaniesService {
   }
 
   async unhideCategory(companyId: string, categoryId: string) {
-    return this.prisma.categoryCompanyHidden.deleteMany({ where: { categoryId, companyId } });
+    return this.prisma.categoryCompanyHidden.deleteMany({
+      where: { categoryId, companyId },
+    });
   }
 
   // Working-day / holiday check used by order creation (4.4: "can't receive
@@ -107,7 +138,9 @@ export class CompaniesService {
     if (!workingDays.includes(dayOfWeek)) return false;
 
     const dateStr = date.toISOString().slice(0, 10);
-    const isHoliday = company.holidays.some((h) => h.date.toISOString().slice(0, 10) === dateStr);
+    const isHoliday = company.holidays.some(
+      (h) => h.date.toISOString().slice(0, 10) === dateStr,
+    );
     return !isHoliday;
   }
 }

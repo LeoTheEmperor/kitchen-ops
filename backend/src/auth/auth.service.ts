@@ -13,7 +13,11 @@ export class AuthService {
   // No public signup: staff accounts are created by an ADMIN via StaffController (3).
   async login(email: string, password: string) {
     const staff = await this.staffService.findByEmail(email);
-    if (!staff || !staff.active || !(await bcrypt.compare(password, staff.password))) {
+    if (
+      !staff ||
+      !staff.active ||
+      !(await bcrypt.compare(password, staff.password))
+    ) {
       throw new UnauthorizedException('Invalid credentials');
     }
     return this.buildToken(staff.id, staff.email, staff.role, staff.name);

@@ -26,7 +26,10 @@ describe('validateCombinationQuantities', () => {
 
   it('throws on a zero or negative combination quantity', () => {
     expect(() =>
-      validateCombinationQuantities(5, [{ quantity: 0, selectedOptionIdsByGroup: {} }, { quantity: 5, selectedOptionIdsByGroup: {} }]),
+      validateCombinationQuantities(5, [
+        { quantity: 0, selectedOptionIdsByGroup: {} },
+        { quantity: 5, selectedOptionIdsByGroup: {} },
+      ]),
     ).toThrow(CombinationValidationError);
   });
 });
@@ -56,7 +59,10 @@ describe('validateRequiredGroupsSatisfied', () => {
   it('does not require a selection for an optional group', () => {
     expect(() =>
       validateRequiredGroupsSatisfied(groups, [
-        { quantity: 1, selectedOptionIdsByGroup: { protein: 'tofu', sauce: null } },
+        {
+          quantity: 1,
+          selectedOptionIdsByGroup: { protein: 'tofu', sauce: null },
+        },
       ]),
     ).not.toThrow();
   });

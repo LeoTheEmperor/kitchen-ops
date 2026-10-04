@@ -26,6 +26,7 @@ export default function KitchenBoardPage() {
   const [boardLoading, setBoardLoading] = useState(true);
   const [stationFilter, setStationFilter] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [now] = useState(() => Date.now());
 
   const fetchBoard = useCallback(() => {
     if (!token) return;
@@ -70,8 +71,6 @@ export default function KitchenBoardPage() {
     (acc[unit.station] ??= []).push(unit);
     return acc;
   }, {});
-
-  const now = Date.now();
 
   return (
     <AppShell user={user}>

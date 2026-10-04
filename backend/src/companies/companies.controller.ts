@@ -54,7 +54,10 @@ export class CompaniesController {
 
   @Roles(StaffRole.ADMIN)
   @Post(':id/hidden-categories/:categoryId')
-  hideCategory(@Param('id') id: string, @Param('categoryId') categoryId: string) {
+  hideCategory(
+    @Param('id') id: string,
+    @Param('categoryId') categoryId: string,
+  ) {
     return this.companiesService.hideCategory(id, categoryId);
   }
 }

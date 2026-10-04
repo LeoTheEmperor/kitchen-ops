@@ -12,13 +12,19 @@ describe('calculateCutoffInstant', () => {
 
   it('a Wednesday delivery with 2 working-day cutoff locks Monday 16:00 (example from spec)', () => {
     // 2026-10-07 is a Wednesday
-    const result = calculateCutoffInstant({ ...baseInputs, deliveryDate: '2026-10-07' });
+    const result = calculateCutoffInstant({
+      ...baseInputs,
+      deliveryDate: '2026-10-07',
+    });
     expect(result.toFormat('yyyy-MM-dd HH:mm')).toBe('2026-10-05 16:00'); // the preceding Monday
   });
 
   it('skips weekends when counting back working days', () => {
     // 2026-10-05 is a Monday; 2 working days back should skip Sat/Sun entirely
-    const result = calculateCutoffInstant({ ...baseInputs, deliveryDate: '2026-10-05' });
+    const result = calculateCutoffInstant({
+      ...baseInputs,
+      deliveryDate: '2026-10-05',
+    });
     // working days back from Monday: Friday (1), Thursday (2)
     expect(result.toFormat('yyyy-MM-dd')).toBe('2026-10-01'); // Thursday
   });
@@ -35,8 +41,12 @@ describe('calculateCutoffInstant', () => {
 
   it('isPastCutoff correctly compares against "now"', () => {
     const inputs = { ...baseInputs, deliveryDate: '2026-10-07' };
-    const beforeCutoff = DateTime.fromISO('2026-10-05T10:00:00', { zone: 'Asia/Kolkata' });
-    const afterCutoff = DateTime.fromISO('2026-10-05T17:00:00', { zone: 'Asia/Kolkata' });
+    const beforeCutoff = DateTime.fromISO('2026-10-05T10:00:00', {
+      zone: 'Asia/Kolkata',
+    });
+    const afterCutoff = DateTime.fromISO('2026-10-05T17:00:00', {
+      zone: 'Asia/Kolkata',
+    });
     expect(isPastCutoff(inputs, beforeCutoff)).toBe(false);
     expect(isPastCutoff(inputs, afterCutoff)).toBe(true);
   });

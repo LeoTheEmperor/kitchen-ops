@@ -1,8 +1,14 @@
-import { IsString, IsOptional, IsBoolean, IsInt, IsArray, Min } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsArray, Min } from 'class-validator';
 
 const BLOCKED_PUBLIC_DOMAINS = [
-  'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com',
-  'aol.com', 'protonmail.com', 'mail.com',
+  'gmail.com',
+  'yahoo.com',
+  'hotmail.com',
+  'outlook.com',
+  'icloud.com',
+  'aol.com',
+  'protonmail.com',
+  'mail.com',
 ];
 export { BLOCKED_PUBLIC_DOMAINS };
 
